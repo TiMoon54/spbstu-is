@@ -1,12 +1,21 @@
 import numpy as np
 import math
+import json
+
 
 __data_file_path = '/Users/timoon/Projects/spbstu-is/simple-recommendation-system/data.csv'
+__day_context_file_path = '/Users/timoon/Projects/spbstu-is/simple-recommendation-system/context_day.csv'
+__place_context_file_path = '/Users/timoon/Projects/spbstu-is/simple-recommendation-system/context_place.csv'
 
 
 def getUserMovieMarkData():
     return np.genfromtxt(__data_file_path, delimiter=',', dtype=int, skip_header=1, usecols=(np.arange(1, 31, 1)))
 
+def getUserMovieDayContextData():
+    return np.genfromtxt(__day_context_file_path, delimiter=',', dtype=str, skip_header=1, usecols=(np.arange(1, 31, 1)))
+
+def getUserMoviePlaceContextData():
+    return np.genfromtxt(__place_context_file_path, delimiter=',', dtype=str, skip_header=1, usecols=(np.arange(1, 31, 1)))
 
 def findCompareapleUsers(target_user_id):
     data = getUserMovieMarkData()
@@ -61,7 +70,49 @@ def processUserRatings(target_user_id):
 
             processed_target_user_marks.append((movie_id + 1, target_user_avg_mark + (sim_sum / pure_sim_sum)))
 
-    print(np.round(processed_target_user_marks, 3))
+    return np.round(processed_target_user_marks, 3)
+
+
+def dayContextValue(movie_ids):
+    mark_data = getUserMovieMarkData()
+    day_context_data = getUserMovieDayContextData()
+
+    movie_day_param = []
+
+    for movie in movie_ids:
+        movie_marks = np.array([], dtype=int)
+        movie_holiday_marks = np.array([], dtype=int)
+
+        for user_id, user_marks in enumerate(mark_data):
+            if user_marks[int(movie[0]) - 1] != -1:
+                movie_marks = np.append(movie_marks, user_marks[int(movie[0]) - 1])
+                if day_context_data[user_id][int(movie[0]) - 1].lstrip() == 'Sat' or day_context_data[user_id][int(movie[0]) - 1].lstrip() == 'Sun':
+                    movie_holiday_marks = np.append(movie_holiday_marks, user_marks[int(movie[0]) - 1])
+
+        movie_day_param.append((int(movie[0]), np.divide(np.average(movie_marks), np.average(movie_holiday_marks))))
+
+    return movie_day_param
+
+
+def placeContextValue(movie_ids):
+    mark_data = getUserMovieMarkData()
+    place_context_data = getUserMoviePlaceContextData()
+
+    movie_place_param = []
+
+    for movie in movie_ids:
+        movie_marks = np.array([], dtype=int)
+        movie_home_marks = np.array([], dtype=int)
+
+        for user_id, user_marks in enumerate(mark_data):
+            if user_marks[int(movie[0]) - 1] != -1:
+                movie_marks = np.append(movie_marks, user_marks[int(movie[0]) - 1])
+                if place_context_data[user_id][int(movie[0]) - 1].lstrip() == 'h' or place_context_data[user_id][int(movie[0]) - 1].lstrip() == 'v':
+                    movie_home_marks = np.append(movie_home_marks, user_marks[int(movie[0]) - 1])
+
+        movie_place_param.append((int(movie[0]), np.divide(np.average(movie_marks), np.average(movie_home_marks))))
+
+    return movie_place_param
 
 
 def my_avg(lst):
@@ -75,4 +126,41 @@ def my_avg(lst):
     return sumer / cnt
 
 
-processUserRatings(1)
+def personalRecommendation(target_user):
+    unseen_movie_processed_ratings = processUserRatings(target_user)
+    movie_place_val = placeContextValue(unseen_movie_processed_ratings)
+    movie_holiday_val = dayContextValue(unseen_movie_processed_ratings)
+
+    recommendation_ratings = []
+    for rating_id, val in enumerate(unseen_movie_processed_ratings):
+        recommendation_ratings.append((int(val[0]), val[1] * movie_place_val[rating_id][1] * movie_holiday_val[rating_id][1]))
+
+    recommendations = np.array(recommendation_ratings, dtype=[('movie_id', int), ('similarity_value', float)])
+    sorted = np.sort(recommendations, order='similarity_value')
+
+    return sorted[-1]
+
+def saveAnsvers(target_user):
+    user_id = target_user
+    recommendation = personalRecommendation(target_user)
+
+    res_obj = {
+        'user': target_user,
+        '1': {
+
+        }
+    }
+
+    for val in processUserRatings(target_user):
+        res_obj['1']['movie ' + str(int(val[0]))] = val[1]
+
+    res_obj['2'] = {
+        'movie ' + str(recommendation[0]): np.round(recommendation[1], 3)
+    }
+
+
+    with open('/Users/timoon/Projects/spbstu-is/simple-recommendation-system/results.json', 'w') as file:
+        json.dump(res_obj, file)
+        file.close()
+
+saveAnsvers(1)

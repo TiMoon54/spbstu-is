@@ -20,7 +20,8 @@ resp = get('https://www.wikidata.org/w/api.php', {
         'format': 'json'
     }).json()
 
-list(resp['entities'])[0]
+wikiMovieCode = list(resp['entities'])[0]
+
 
 # Prepare request to wikidata
 sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
@@ -34,10 +35,10 @@ WHERE {
 
 ?human wdt:P18 ?picture. 
 
-wd:Q131074 wdt:P161 ?human. 
+wd:""" + wikiMovieCode + """ wdt:P161 ?human. 
 
 ?human wdt:P569 ?date. 
-wd:Q131074 wdt:P577 ?dateFilm. 
+wd:""" + wikiMovieCode + """ wdt:P577 ?dateFilm. 
 
 FILTER (YEAR(?dateFilm) - YEAR(?date) > 40) 
 

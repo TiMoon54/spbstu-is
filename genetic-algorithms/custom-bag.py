@@ -103,18 +103,16 @@ def choose_to_crossover(pop_list, data):
     return choosens
 
 
-# 3.1 (now it done as 3.2)
+# 3.1 multipoint crossover (with 3 dots)
 def crossover(parent_1, parent_2):
-    child_1 = list.copy(parent_1)
-    child_2 = list.copy(parent_1)
+    dots = []
+    for i in range(0, 3):
+        dots.append(rnd.randint(1, len(parent_1)))
 
-    for i in range(len(parent_1)):
-        r1 = rnd.randint(0, 1)
-        r2 = rnd.randint(0, 1)
-        if r1 > 0:
-            child_1[i] = parent_2[i]
-        if r2 > 0:
-            child_2[i] = parent_2[i]
+    dots.sort()
+
+    child_1 = parent_1[:dots[0]] + parent_2[dots[0]:dots[1]] + parent_1[dots[1]:dots[2]] + parent_2[dots[2]:]
+    child_2 = parent_2[:dots[0]] + parent_1[dots[0]:dots[1]] + parent_2[dots[1]:dots[2]] + parent_1[dots[2]:]
 
     return child_1, child_2
 

@@ -28,11 +28,6 @@ def get_data():
 bagData = get_data()
 
 items = bagData['i']
-exit(0)
-
-# put data and set settings
-# ga = pyeasyga.GeneticAlgorithm(bagData['i'])
-# ga.population_size = 200
 
 
 # declare the function, that decides, who will live, who won't :)
@@ -50,8 +45,34 @@ def fitness(individual, data):
     return price
 
 
-# set the function
-ga.fitness_function = fitness
+def get_best_pop_fitness(pop_list, data):
+    candidates = []
+
+    # fitness value calculation
+    for i in range(len(pop_list)):
+        candidates.append(fitness(pop_list[i], data))
+
+    # find max fitness value
+    max_fitness = candidates[0]
+    for j in range(len(candidates)):
+        max_fitness = candidates[j] if candidates[j] > max_fitness else max_fitness
+
+    return max_fitness
+
+
+def get_best_individual(pop_list, data):
+    candidates = []
+
+    # fitness value calculation
+    for i in range(len(pop_list)):
+        candidates.append((fitness(pop_list[i], data), pop_list[i]))
+
+    # find max fitness value
+    max_fitness = candidates[0]
+    for j in range(len(candidates)):
+        max_fitness = candidates[j] if candidates[j][0] > max_fitness[0] else max_fitness
+
+    return max_fitness
 
 
 # 1.1 random generation
@@ -66,7 +87,7 @@ def choose_to_crossover(pop_list, data):
 
     # fitness value calculation
     for i in range(len(pop_list)):
-        candidates[i] = fitness(pop_list[i], data)
+        candidates.append(fitness(pop_list[i], data))
 
     # find max fitness value
     max_fitness = candidates[0]
@@ -100,6 +121,9 @@ def crossover(parent_1, parent_2):
 
 # 4.1 invert all for one
 def mutation(pop_list):
+    if len(pop_list) == 0:
+        return pop_list
+
     # choose one to revert all its bites
     i = rnd.randint(0, len(pop_list) - 1)
     choosen = pop_list[i]
@@ -112,37 +136,98 @@ def mutation(pop_list):
 
     return pop_list
 
+
 # 5.2 set new population
 def update_population(old_pop, new_pop, data):
     merged_pop = []
 
     # fitness value calculation for old population
     for i in range(len(old_pop)):
-        merged_pop[i] = (i, fitness(old_pop[i], data) * .8)
+        merged_pop.append((fitness(old_pop[i], data) * .8, old_pop[i]))
 
     # fitness value calculation for new population
     for j in range(len(new_pop)):
-        merged_pop[len(old_pop) + j] = (len(old_pop) + j, fitness(new_pop[j], data))
+        merged_pop.append((fitness(new_pop[j], data), new_pop[j]))
 
     #  arrange by fitness value
-    merged_pop = sorted(merged_pop, key=lambda x: x[1])
+    merged_pop = sorted(merged_pop, key=lambda x: x[0], reverse=True)
 
     better_pop = merged_pop[0:len(old_pop)]
     choosen = []
     for q in range(len(better_pop)):
-        choosen[q] = new_pop[better_pop[q][0] - len(old_pop)] if better_pop[q][0] > len(old_pop) else old_pop[better_pop[q][0]]
+        choosen.append(better_pop[q][1])
 
     return choosen
 
 
+def ga(data):
+    # generate first population 1.1
+    first_pop = []
+    for i in range(200):
+        first_pop.append(create_individual(data))
 
+    # find max fitness to compare with next populations
+    pop_with_fitness = []
 
+    # fitness value calculation
+    for i in range(len(first_pop)):
+        pop_with_fitness.append(fitness(first_pop[i], data))
 
-# simply clever
-ga.run()
+    # find max fitness value
+    max_fitness = pop_with_fitness[0]
+    for j in range(len(pop_with_fitness)):
+        max_fitness = pop_with_fitness[j] if pop_with_fitness[j] > max_fitness else max_fitness
+
+    # current marked fitness
+    current_fitness = max_fitness
+
+    # first population also has a mutation
+    next_pop = mutation(first_pop)
+
+    # mark if there is no updates for a lot of populations
+    stagnation_counter = 0
+
+    # first population life cycle
+    for g in range(500):
+        # 2.1 (choose to crossover)
+        future_parents = choose_to_crossover(next_pop, data)
+
+        # 3.1 (crossover)
+        children_pop = []
+        for x in range(len(future_parents) - 1):
+            children = crossover(future_parents[x], future_parents[x + 1])
+            children_pop.append(children[0])
+            children_pop.append(children[1])
+
+        # 4.1 (children pop mutation)
+        children_pop = mutation(children_pop)
+
+        # 5.1 (next population generation)
+        old_pop = next_pop
+        next_pop = update_population(next_pop, children_pop, data)
+
+        # 6
+        next_fitness = get_best_pop_fitness(next_pop, data)
+
+        # if there is no huge changes in fitness function result for about 10 populations - we quit
+        if abs((current_fitness - next_fitness) / ((current_fitness + next_fitness) / 2)) * 100 < .1:
+            if stagnation_counter > 10:
+                if current_fitness > next_fitness:
+                    return get_best_individual(old_pop, data)
+                else:
+                    return get_best_individual(next_pop, data)
+            else:
+                stagnation_counter += 1
+        else:
+            stagnation_counter = 0
+            current_fitness = next_fitness
+
+    return get_best_individual(next_pop, data)
+
 
 # as a results here
-result = ga.best_individual()
+result = ga(items)
+
 
 resultWeight = 0
 resultVolume = 0
